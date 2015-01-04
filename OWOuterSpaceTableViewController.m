@@ -18,6 +18,25 @@
 
 @implementation OWOuterSpaceTableViewController
 
+#define ADDED_SPACE_OBJECT_KEY @"Added Space Object Array"
+
+#pragma mark - Lazy Instantiation
+-(NSMutableArray *)planets
+{
+    if(!_planets){
+        _planets = [[NSMutableArray alloc]init];
+        }
+    return _planets;
+}
+-(NSMutableArray *)addedSpaceObjects
+{
+    if(!_addedSpaceObjects){
+        _addedSpaceObjects = [[NSMutableArray alloc]init];
+    }
+    return _addedSpaceObjects;
+}
+
+
 - (id)initWithStyle:(UITableViewStyle)style
 {
     self = [super initWithStyle:style];
@@ -31,7 +50,7 @@
 {
     [super viewDidLoad];
     
-self.planets = [[NSMutableArray alloc]init];
+//self.planets = [[NSMutableArray alloc]init];
     
     
     for (NSMutableDictionary *planetData in [AstronomicalData allKnownPlanets]) {
@@ -40,6 +59,13 @@ self.planets = [[NSMutableArray alloc]init];
         OWSpaceObject *planet = [[OWSpaceObject alloc] initWithData:planetData addImage:[UIImage imageNamed:imageName]];
         [self.planets addObject:planet];
         
+    }
+    
+    NSArray *myPlanetAsPropertyLists = [[NSUserDefaults standardUserDefaults]arrayForKey:ADDED_SPACE_OBJECT_KEY];
+    
+    for (NSDictionary *dictionary in myPlanetAsPropertyLists) {
+        OWSpaceObject *spaceObject = [self spaceObjectForDictionary:dictionary];
+        [self.addedSpaceObjects addObject:spaceObject];
     }
     
 //    NSString *plant1 = @"Mercury";
@@ -60,13 +86,9 @@ self.planets = [[NSMutableArray alloc]init];
 //    [self.planets addObject:plant7];
 //    [self.planets addObject:plant8];
     
-    
-    
 //    self.planets = [[NSMutableArray  alloc]initWithObjects:plant1, plant2, plant3, plant4,
 //                    plant5, plant6, plant7, plant8, nil];
-    
-    
-    
+   
 //    NSMutableDictionary *myDictionary = [[NSMutableDictionary alloc]init];
 //    NSString *firstColor = @"red";
 //    [myDictionary setObject:firstColor forKey:@"firetruck color"];
@@ -80,8 +102,7 @@ self.planets = [[NSMutableArray alloc]init];
 //    NSNumber *myNumber = [NSNumber numberWithInt:5];
 //    NSLog(@"%@",myNumber);
     
-    
-    
+   
     // Uncomment the following line to preserve selection between presentations.
     // self.clearsSelectionOnViewWillAppear = NO;
     
@@ -103,15 +124,57 @@ self.planets = [[NSMutableArray alloc]init];
 
 -(void)addSpaceObject:(OWSpaceObject *)spaceObject {
     
-    if (!self.addedSpaceObjects){
-        self.addedSpaceObjects = [[NSMutableArray alloc]init];
-        }
+    /* if (!self.addedSpaceObjects){
+       self.addedSpaceObjects = [[NSMutableArray alloc]init];
+        } */
+    
+    // now using getter method
     [self.addedSpaceObjects addObject:spaceObject];
+    
     NSLog(@"addSpaceObject");
+    // Will Save to NSUserDefaults
+    NSMutableArray *spaceObjectAsPropertyLists = [[[NSUserDefaults standardUserDefaults]arrayForKey:ADDED_SPACE_OBJECT_KEY] mutableCopy];
+    if (!spaceObjectAsPropertyLists) spaceObjectAsPropertyLists = [[NSMutableArray alloc]init];
+    
+    [spaceObjectAsPropertyLists addObject:[self spaceObjectAsAPropertyList:spaceObject]];
+    
+    [[NSUserDefaults standardUserDefaults]setObject:spaceObjectAsPropertyLists forKey:ADDED_SPACE_OBJECT_KEY];
+    
+    [[NSUserDefaults standardUserDefaults]synchronize];
+    
     [self dismissViewControllerAnimated:YES completion:nil];
     
     [self.tableView reloadData];
     
+}
+
+#pragma mark - Helper Methods
+-(NSDictionary *)spaceObjectAsAPropertyList:(OWSpaceObject *)spaceObject
+{
+    
+    NSData *imageData = UIImagePNGRepresentation(spaceObject.spaceImage);
+    
+    NSDictionary *dictionary = @{PLANET_NAME : spaceObject.name,
+                                 PLANET_GRAVITY : @(spaceObject.gravitationalForce),
+                                 PLANET_DIAMETER : @(spaceObject.diameter),
+                                 PLANET_YEAR_LENGTH : @(spaceObject.yearLength),
+                                 PLANET_DAY_LENGTH : @(spaceObject.dayLength),
+                                 PLANET_TEMPERATURE : @(spaceObject.temperature),
+                                 PLANET_NUMBER_OF_MOONS : @(spaceObject.numberOfMoons),
+                                 PLANET_NICKNAME : spaceObject.nickname,
+                                 PLANET_INTERESTING_FACT : spaceObject.interestFact,
+                                 PLANET_IMAGE : imageData};
+    return dictionary;
+}
+
+-(OWSpaceObject *)spaceObjectForDictionary:(NSDictionary *)dictionary
+{
+    NSData *dataForImage = dictionary[PLANET_IMAGE];
+    UIImage *spaceObjectImage = [UIImage imageWithData:dataForImage];
+    
+    OWSpaceObject *spaceObject = [[OWSpaceObject alloc]initWithData:dictionary addImage:spaceObjectImage];
+    
+    return spaceObject;
 }
 
 #pragma mark - Table view data source
@@ -152,6 +215,7 @@ self.planets = [[NSMutableArray alloc]init];
         OWSpaceObject *planet = [self.addedSpaceObjects objectAtIndex:indexPath.row];
         cell.textLabel.text = planet.name;
         cell.detailTextLabel.text = planet.nickname;
+        cell.imageView.image = planet.spaceImage;
     } else {
         
    
@@ -176,13 +240,19 @@ self.planets = [[NSMutableArray alloc]init];
     // Pass the selected object to the new view controller.
     
     if ([sender isKindOfClass:[UITableViewCell class]]) {
-        
-        if ( [segue.destinationViewController isKindOfClass:[OWSpaceImageViewController class]]) {
+      if ( [segue.destinationViewController isKindOfClass:[OWSpaceImageViewController class]]) {
             OWSpaceImageViewController *nextViewController = segue.destinationViewController;
             
             NSIndexPath *path = [self.tableView indexPathForCell:sender];
             
-           OWSpaceObject *selectObject = [self.planets objectAtIndex:path.row];
+          OWSpaceObject *selectObject;
+          if (path.section == 0) {
+              selectObject = self.planets[path.row];
+          } else if (path.section ==1){
+              selectObject = self.addedSpaceObjects[path.row];
+          }
+              
+          //    = [self.planets objectAtIndex:path.row];
             
             // PUT LOGIC HERE FOR self.addedSpaceObjects
             //OWSpaceObject *selectObject = [self.addedSpaceObjects objectAtIndex:path.row];
@@ -197,7 +267,12 @@ self.planets = [[NSMutableArray alloc]init];
             OWSpaceDataViewController *targetViewController = segue.destinationViewController;
             
             NSIndexPath *path = sender;
-            OWSpaceObject *selectedObject = self.planets[path.row];
+            OWSpaceObject *selectedObject;
+            if (path.section == 0) {
+                selectedObject = self.planets[path.row];
+            } else if (path.section ==1){
+                selectedObject = self.addedSpaceObjects[path.row];
+            }
             
             // PUT LOGIC HERE FOR self.addedSpaceObjects
             //OWSpaceObject *selectedObject = [self.addedSpaceObjects objectAtIndex:path.row];
@@ -206,12 +281,43 @@ self.planets = [[NSMutableArray alloc]init];
         }
     }
     
-    if ([segue.destinationViewController isKindOfClass:[OWAddSpaceObjectViewController class]]) {
-        OWAddSpaceObjectViewController *addSpaceObjectVC = segue.destinationViewController;
-        addSpaceObjectVC.delegate = self;
+    if ([sender isKindOfClass:[UIBarButtonItem class]]) {
+       if ([segue.destinationViewController isKindOfClass:[OWAddSpaceObjectViewController class]]) {
+          OWAddSpaceObjectViewController *addSpaceObjectVC = segue.destinationViewController;
+          addSpaceObjectVC.delegate = self;
+          }
     }
+    
    }
 
+- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    if (indexPath.section == 1) return YES;
+    else return NO;
+}
+
+- (void)tableView:(UITableView *)tableView
+commitEditingStyle:(UITableViewCellEditingStyle)editingStyle
+forRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    if (editingStyle == UITableViewCellEditingStyleDelete) {
+        
+        [self.addedSpaceObjects removeObjectAtIndex:indexPath.row];
+        NSMutableArray *newSavedSpaceObjectData = [[NSMutableArray alloc]init];
+        
+        for (OWSpaceObject *spaceObject in self.addedSpaceObjects) {
+            [newSavedSpaceObjectData addObject:[self spaceObjectAsAPropertyList:spaceObject]];
+            }
+        [[NSUserDefaults standardUserDefaults]setObject:newSavedSpaceObjectData forKey:ADDED_SPACE_OBJECT_KEY];
+        
+        [[NSUserDefaults standardUserDefaults] synchronize];
+        
+        
+        [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
+    } else if (editingStyle == UITableViewCellEditingStyleInsert) {
+        
+    }
+}
 
 
 #pragma mark - UITableViewDelegate
