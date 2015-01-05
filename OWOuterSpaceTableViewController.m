@@ -294,6 +294,7 @@
 {
     if (indexPath.section == 1) return YES;
     else return NO;
+    
 }
 
 - (void)tableView:(UITableView *)tableView
